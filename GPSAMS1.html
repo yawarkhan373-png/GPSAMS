@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>GPSAMS &middot; Teacher Attendance</title>
+<meta name="theme-color" content="#0F5C4C">
+
+<!-- Tailwind (utility CSS) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- SheetJS (Excel export) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<!-- Firebase (v8 compat SDK — simplest for a single static file, no build step) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --forest:#0F5C4C;
+    --forest-dark:#0A4137;
+    --gold:#D9A441;
+    --gold-dark:#B5822C;
+    --paper:#FAF7F0;
+    --ink:#1F2937;
+    --ink-light:#6B7280;
+    --rose:#DC2626;
+    --rose-bg:#FEE2E2;
+    --green:#16A34A;
+    --green-bg:#DCFCE7;
+    --amber:#D97706;
+    --amber-bg:#FEF3C7;
+    --border:#E7E1D3;
+    --card:#FFFFFF;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;}
+  body{min-height:100vh; overscroll-behavior-y:none;}
+  .ur{font-family:'Noto Nastaliq Urdu','Inter',serif; direction:rtl; line-height:2.1;}
+  .ur-ui{font-family:'Noto Nastaliq Urdu','Inter',serif;}
+  [dir="rtl"]{direction:rtl;}
+  .font-en{font-family:'Inter',system-ui,sans-serif;}
+  .card{background:var(--card); border:1.5px solid var(--border); border-radius:18px;}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:700; border-radius:14px; padding:12px 18px; transition:transform .1s ease, opacity .15s ease; border:2px solid transparent; cursor:pointer; font-size:14px;}
+  .btn:active{transform:scale(.96);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-primary{background:var(--forest); color:#fff; border-color:var(--forest);}
+  .btn-gold{background:var(--gold); color:#fff; border-color:var(--gold);}
+  .btn-outline{background:#fff; color:var(--forest); border-color:var(--forest);}
+  .btn-danger{background:var(--rose); color:#fff; border-color:var(--rose);}
+  .btn-ghost{background:transparent; color:var(--ink-light); border-color:transparent;}
+  .btn-block{width:100%;}
+  input[type=text], input[type=password], input[type=email], input[type=number], input[type=date], input[type=time], select, textarea{
+    width:100%; border:1.5px solid var(--border); border-radius:12px; padding:11px 13px; font-size:14px; background:#fff; color:var(--ink); outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:var(--forest);}
+  label.field-label{display:block; font-size:12px; font-weight:700; color:var(--ink-light); margin-bottom:5px;}
+  .badge{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800;}
+  .modal-backdrop{position:fixed; inset:0; background:rgba(15,23,17,.55); z-index:50; display:flex; align-items:flex-end; justify-content:center;}
+  @media (min-width:640px){ .modal-backdrop{align-items:center;} }
+  .modal-sheet{background:#fff; width:100%; max-width:480px; border-radius:22px 22px 0 0; max-height:92vh; overflow-y:auto; padding:20px;}
+  @media (min-width:640px){ .modal-sheet{border-radius:22px; margin-bottom:20px;} }
+  .hidden{display:none !important;}
+  ::-webkit-scrollbar{width:5px; height:5px;}
+  ::-webkit-scrollbar-thumb{background:#c9c2ab; border-radius:3px;}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 22px; border-radius:14px; font-size:13px; font-weight:600; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:90vw; text-align:center;}
+  .spinner{width:18px; height:18px; border:2.5px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .pulse-dot{width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(22,163,74,.6); animation:pulse 1.8s infinite;}
+  @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(22,163,74,.55);} 70%{box-shadow:0 0 0 10px rgba(22,163,74,0);} 100%{box-shadow:0 0 0 0 rgba(22,163,74,0);} }
+  .tab-btn{flex:1; text-align:center; padding:10px 4px; font-size:12px; font-weight:800; border-radius:12px; color:var(--ink-light);}
+  .tab-btn.active{background:var(--forest); color:#fff;}
+  table.rpt{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.rpt th{background:#F1EEE3; padding:8px 6px; text-align:start; font-weight:800; color:var(--ink-light); border-bottom:2px solid var(--border);}
+  table.rpt td{padding:7px 6px; border-bottom:1px solid var(--border);}
+  #camVideo, #camCanvas{width:100%; border-radius:16px; background:#000;}
+  .avatar{width:42px; height:42px; border-radius:50%; object-fit:cover; background:#E7E1D3; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--forest); flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div id="toastHost"></div>
+
+<!-- ============ LOADING ============ -->
+<div id="loadingScreen" class="min-h-screen flex flex-col items-center justify-center gap-3">
+  <div style="width:54px;height:54px;border:4px solid #E7E1D3;border-top-color:var(--forest);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+  <p class="text-sm font-bold" style="color:var(--ink-light)" id="loadingLabel">Loading&hellip;</p>
+</div>
+
+<!-- ============ FIREBASE CONFIG NOTICE ============ -->
+<div id="configScreen" class="hidden min-h-screen flex items-center justify-center p-6">
+  <div class="card p-6 max-w-sm w-full text-center">
+    <div class="text-4xl mb-3">&#9888;&#65039;</div>
+    <h2 class="font-extrabold text-lg mb-2">Firebase Config Missing</h2>
+    <p class="text-sm mb-1" style="color:var(--ink-light)">Open this file and paste your Firebase project keys into the <code>firebaseConfig</code> object near the top of the script (search for <b>PASTE_YOUR</b>).</p>
+    <p class="text-xs mt-3" style="color:var(--ink-light)">See the setup notes at the end of this file for step-by-step instructions.</p>
+  </div>
+</div>
+
+<!-- ============ SETUP: CREATE FIRST ADMIN (shown only when no users exist yet) ============ -->
+<div id="setupScreen" class="hidden min-h-screen flex items-center justify-center p-5">
+  <div class="card p-6 max-w-sm w-full">
+    <h2 class="font-extrabold text-xl mb-1" style="color:var(--forest)">Create Admin Account</h2>
+    <p class="text-xs mb-4" style="color:var(--ink-light)">This is your first time running the app. Create the Admin account that will manage the school.</p>
+    <div class="flex flex-col gap-3">
+      <div><label class="field-label">School Name</label><input type="text" id="setupSchoolName" placeholder="Government Primary School Chamber"></div>
+      <div><label class="field-label">Admin Name</label><input type="text" id="setupAdminName" placeholder="Your name"></div>
+      <div><label class="field-label">Admin Email</label><input type="email" id="setupEmail" placeholder="admin@example.com"></div>
+      <div><label class="field-label">Password (min 6 characters)</label><input type="password" id="setupPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;"></div>
+      <p id="setupErr" class="text-xs font-bold hidden" style="color:var(--rose)"></p>
+      <button class="btn btn-primary btn-block" id="setupBtn">Create Admin &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen" class="hidden min-h-screen flex items-center justify-center p-5">
+  <div class="card p-6 max-w-sm w-full">
+    <div class="text-center mb-5">
+      <div class="text-3xl mb-1">&#127891;</div>
+      <h1 class="font-extrabold text-lg" style="color:var(--forest)" id="loginSchoolName">GPSAMS</h1>
+      <p class="text-xs" style="color:var(--ink-light)">GPS Attendance Management System</p>
+    </div>
+    <div class="flex flex-col gap-3">
+      <div><label class="field-label">Email</label><input type="email" id="loginEmail" placeholder="you@example.com"></div>
+      <div><label class="field-label">Password</label><input type="password" id="loginPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;"></div>
+      <p id="loginErr" class="text-xs font-bold hidden" style="color:var(--rose)"></p>
+      <button class="btn btn-primary btn-block" id="loginBtn"><span id="loginBtnLabel">Log In</span></button>
+    </div>
+    <p class="text-[11px] text-center mt-4" style="color:var(--ink-light)">Forgot your password? Ask your Admin to reset it from the Teachers panel.</p>
+  </div>
+</div>
+
+<!-- ============ APP SHELL (shared by admin + teacher) ============ -->
+<div id="appShell" class="hidden min-h-screen flex flex-col pb-24">
+
+  <header class="sticky top-0 z-30" style="background:linear-gradient(135deg,var(--forest),var(--forest-dark));">
+    <div class="px-4 pt-4 pb-3 flex items-center justify-between text-white">
+      <div>
+        <p class="text-[11px] opacity-80 font-semibold" id="hdrSchoolName">GPSAMS</p>
+        <p class="font-extrabold text-base" id="hdrUserName">&nbsp;</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="langToggleBtn" class="btn btn-ghost" style="background:rgba(255,255,255,.15); color:#fff; padding:8px 12px; font-size:12px;">EN</button>
+        <button id="logoutBtn" class="btn btn-ghost" style="background:rgba(255,255,255,.15); color:#fff; padding:8px 10px;">&#9099;</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 px-4 pt-4 flex flex-col gap-4" id="mainContent">
+    <!-- injected per-role screens go here -->
+  </main>
+
+  <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t flex gap-1 p-2" style="border-color:var(--border);"></nav>
+</div>
+
+<!-- ============ CAMERA CAPTURE MODAL ============ -->
+<div id="cameraModal" class="modal-backdrop hidden">
+  <div class="modal-sheet">
+    <h3 class="font-extrabold text-base mb-1" id="camTitle">Live Selfie Verification</h3>
+    <p class="text-xs mb-3" style="color:var(--ink-light)" id="camSub">Center your face and capture a live photo to confirm your attendance.</p>
+    <div id="camLiveWrap"><video id="camVideo" autoplay playsinline muted></video></div>
+    <canvas id="camCanvas" class="hidden"></canvas>
+    <img id="camPreviewImg" class="hidden w-full rounded-2xl" style="max-height:320px;object-fit:cover;">
+    <p id="camErr" class="text-xs font-bold mt-2 hidden" style="color:var(--rose)"></p>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-outline btn-block" id="camCancelBtn">Cancel</button>
+      <button class="btn btn-gold btn-block hidden" id="camRetakeBtn">Retake</button>
+      <button class="btn btn-primary btn-block" id="camCaptureBtn">Capture</button>
+      <button class="btn btn-primary btn-block hidden" id="camConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GENERIC MODAL HOST (leave form, add teacher, settings, etc.) ============ -->
+<div id="modalHost" class="modal-backdrop hidden">
+  <div class="modal-sheet" id="modalSheetInner"></div>
+</div>
+
+<script>
+/* =========================================================================
+   GPSAMS — GPS Attendance Management System (Firebase edition)
+   Vanilla JS. No build step. Paste your Firebase keys below and host as-is.
+   ========================================================================= */
+
+/* ---------- 1. FIREBASE CONFIG — PASTE YOUR OWN PROJECT KEYS HERE ---------- */
+const firebaseConfig = {
+apiKey: "AIzaSyD1E_fUKfwiwb-Wia6GtvD85edtV1Mw33s",
+  authDomain: "gpsams-ce5fa.firebaseapp.com",
+  databaseURL: "https://gpsams-ce5fa-default-rtdb.firebaseio.com",
+  projectId: "gpsams-ce5fa",
+  storageBucket: "gpsams-ce5fa.firebasestorage.app",
+  messagingSenderId: "202220519794",
+  appId: "1:202220519794:web:960045a6c4ca41aeeb9deb"
+};
+
+let db, auth, serverTimeOffset = 0;
+let CURRENT_USER = null;      // {uid, email, role, name, designation}
+let SETTINGS = { schoolName:"GPSAMS", schoolLat:null, schoolLng:null, geoFenceRadius:50, schoolStart:"08:00", schoolClose:"14:00", gracePeriod:15 };
+let LANG = "ur";
+let TEACHERS_CACHE = {};      // uid -> profile, admin only
+let PENDING_PHOTO = null;     // base64 captured selfie awaiting confirm
+let PENDING_GEO = null;       // {lat,lng,accuracy,dist}
+let PENDING_KIND = null;      // "checkIn" | "checkOut"
+let CAM_STREAM = null;
+
+/* ---------- 2. LANGUAGE DICTIONARY ---------- */
+const I18N = {
+  en: {
+    appName:"GPSAMS", tagline:"GPS Attendance Management System",
+    login:"Log In", email:"Email", password:"Password", logout:"Logout",
+    dashboard:"Dashboard", teachers:"Teachers", leaves:"Leaves", reports:"Reports", settings:"Settings",
+    home:"Home", myAttendance:"My Attendance", requestLeave:"Request Leave",
+    checkIn:"Check In", checkOut:"Check Out", alreadyDone:"Done for today", notCheckedIn:"Not checked in yet",
+    onTime:"On Time", late:"Late", halfDay:"Half Day", absent:"Absent", onLeave:"On Leave", pending:"Pending",
+    approve:"Approve", reject:"Reject", approved:"Approved", rejected:"Rejected",
+    totalTeachers:"Total Teachers", presentToday:"Present Today", lateToday:"Late Today", onLeaveToday:"On Leave",
+    yourDistance:"Distance from school", withinRange:"Within range", outsideRange:"Too far from school",
+    captureSelfie:"Live Selfie Verification", captureSub:"Center your face and capture a live photo to confirm your attendance.",
+    capture:"Capture", retake:"Retake", confirm:"Confirm", cancel:"Cancel",
+    addTeacher:"Add Teacher", name:"Full Name", designation:"Designation", save:"Save",
+    schoolSettings:"School Settings", schoolName:"School Name", schoolLocation:"School Location",
+    useMyLocation:"Use My Current Location", geoFenceRadius:"Geo-fence Radius (meters)",
+    schoolStart:"School Start Time", schoolClose:"School Closing Time", gracePeriod:"Grace Period (minutes)",
+    exportMonthly:"Export Monthly Attendance", exportBtn:"Export to Excel", selectMonth:"Select Month",
+    leaveType:"Leave Type", casual:"Casual Leave", sick:"Sick Leave", fromDate:"From", toDate:"To",
+    reason:"Reason", submit:"Submit Request", noLeaves:"No leave requests yet", myLeaves:"My Leave Requests",
+    checkInTime:"Check-in Time", checkOutTime:"Check-out Time", status:"Status", hours:"Hours",
+    geoDenied:"Location permission denied. Please allow location access.", geoNoSupport:"GPS not supported on this device.",
+    tooFar:"You are too far from school to check in.", lowAccuracy:"GPS accuracy is too low — please try again in an open area.",
+    camDenied:"Camera permission denied. Please allow camera access to check in.", camNoSupport:"Camera not supported on this device.",
+    doneToday:"Attendance recorded for today.", wrongCreds:"Incorrect email or password.",
+    fillAll:"Please fill in all fields.", weakPassword:"Password should be at least 6 characters.",
+    emailInUse:"This email is already registered.", createAdmin:"Create Admin Account", firstRunNote:"This is your first time running the app. Create the Admin account that will manage the school.",
+    adminName:"Admin Name", createContinue:"Create Admin & Continue", noTeachersYet:"No teachers added yet.",
+    recentActivity:"Today's Attendance", noActivityToday:"No check-ins recorded yet today.",
+    teacherHistory:"Attendance History", date:"Date", noHistory:"No attendance records yet.",
+    active:"Active", inactive:"Inactive", deactivate:"Deactivate", activate:"Activate",
+    resetPassword:"Send Password Reset Email", resetSent:"Password reset email sent.",
+    manualCoordsWarn:"Manual coordinates are only available to Admin, for one-time school setup — teachers must use live GPS.",
+    lat:"Latitude", lng:"Longitude", pendingApproval:"Pending Approval", allLeaves:"All Leave Requests",
+    savedOk:"Saved.", noSettingsYet:"Set your school location before teachers can check in.",
+    incomplete:"Incomplete", requestedOn:"Requested on"
+  },
+  ur: {
+    appName:"GPSAMS", tagline:"GPS حاضری نظام",
+    login:"لاگ اِن", email:"ای میل", password:"پاس ورڈ", logout:"لاگ آؤٹ",
+    dashboard:"ڈیش بورڈ", teachers:"اساتذہ", leaves:"چھٹیاں", reports:"رپورٹس", settings:"سیٹنگز",
+    home:"ہوم", myAttendance:"میری حاضری", requestLeave:"چھٹی کی درخواست",
+    checkIn:"چیک ان", checkOut:"چیک آؤٹ", alreadyDone:"آج کے لیے مکمل", notCheckedIn:"ابھی چیک اِن نہیں ہوا",
+    onTime:"وقت پر", late:"دیر سے", halfDay:"ہاف ڈے", absent:"غیر حاضر", onLeave:"چھٹی پر", pending:"زیرِ التوا",
+    approve:"منظور کریں", reject:"مسترد کریں", approved:"منظور شدہ", rejected:"مسترد شدہ",
+    totalTeachers:"کل اساتذہ", presentToday:"آج حاضر", lateToday:"آج دیر سے", onLeaveToday:"چھٹی پر",
+    yourDistance:"سکول سے فاصلہ", withinRange:"حد میں", outsideRange:"سکول سے بہت دور",
+    captureSelfie:"براہِ راست سیلفی تصدیق", captureSub:"اپنا چہرہ درمیان میں رکھیں اور حاضری کی تصدیق کے لیے تصویر لیں۔",
+    capture:"تصویر لیں", retake:"دوبارہ لیں", confirm:"تصدیق کریں", cancel:"منسوخ کریں",
+    addTeacher:"استاد شامل کریں", name:"پورا نام", designation:"عہدہ", save:"محفوظ کریں",
+    schoolSettings:"سکول سیٹنگز", schoolName:"سکول کا نام", schoolLocation:"سکول کی موجودگی",
+    useMyLocation:"میرا موجودہ مقام استعمال کریں", geoFenceRadius:"جغرافیائی حد (میٹر)",
+    schoolStart:"سکول شروع ہونے کا وقت", schoolClose:"سکول بند ہونے کا وقت", gracePeriod:"رعایتی مدت (منٹ)",
+    exportMonthly:"ماہانہ حاضری ایکسپورٹ کریں", exportBtn:"ایکسل میں ایکسپورٹ کریں", selectMonth:"مہینہ منتخب کریں",
+    leaveType:"چھٹی کی قسم", casual:"غیر معمولی چھٹی", sick:"بیماری کی چھٹی", fromDate:"سے", toDate:"تک",
+    reason:"وجہ", submit:"درخواست بھیجیں", noLeaves:"ابھی تک کوئی چھٹی کی درخواست نہیں", myLeaves:"میری چھٹیاں",
+    checkInTime:"چیک اِن وقت", checkOutTime:"چیک آؤٹ وقت", status:"حالت", hours:"گھنٹے",
+    geoDenied:"مقام کی اجازت نہیں ملی۔ براہِ کرم لوکیشن کی اجازت دیں۔", geoNoSupport:"اس ڈیوائس پر GPS دستیاب نہیں۔",
+    tooFar:"آپ سکول سے بہت دور ہیں، چیک اِن نہیں ہو سکتا۔", lowAccuracy:"GPS درستگی بہت کم ہے — براہِ کرم کھلی جگہ پر دوبارہ کوشش کریں۔",
+    camDenied:"کیمرے کی اجازت نہیں ملی۔ چیک اِن کے لیے کیمرہ درکار ہے۔", camNoSupport:"اس ڈیوائس پر کیمرہ دستیاب نہیں۔",
+    doneToday:"آج کی حاضری درج ہو گئی۔", wrongCreds:"ای میل یا پاس ورڈ غلط ہے۔",
+    fillAll:"براہِ کرم تمام خانے پُر کریں۔", weakPassword:"پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے۔",
+    emailInUse:"یہ ای میل پہلے سے رجسٹرڈ ہے۔", createAdmin:"ایڈمن اکاؤنٹ بنائیں", firstRunNote:"یہ ایپ پہلی بار چل رہی ہے۔ سکول کا انتظام کرنے کے لیے ایڈمن اکاؤنٹ بنائیں۔",
+    adminName:"ایڈمن کا نام", createContinue:"ایڈمن بنائیں اور جاری رکھیں", noTeachersYet:"ابھی تک کوئی استاد شامل نہیں ہوا۔",
+    recentActivity:"آج کی حاضری", noActivityToday:"آج تک کوئی چیک اِن درج نہیں ہوا۔",
+    teacherHistory:"حاضری کی تاریخ", date:"تاریخ", noHistory:"ابھی تک کوئی ریکارڈ نہیں۔",
+    active:"فعال", inactive:"غیر فعال", deactivate:"غیر فعال کریں", activate:"فعال کریں",
+    resetPassword:"پاس ورڈ ری سیٹ ای میل بھیجیں", resetSent:"پاس ورڈ ری سیٹ ای میل بھیج دی گئی۔",
+    manualCoordsWarn:"دستی نقاط صرف ایڈمن کے لیے، صرف سکول کی ابتدائی ترتیب کے لیے — اساتذہ کو لازمی طور پر لائیو GPS استعمال کرنا ہوگا۔",
+    lat:"عرض بلد", lng:"طول بلد", pendingApproval:"منظوری کے منتظر", allLeaves:"تمام چھٹیوں کی درخواستیں",
+    savedOk:"محفوظ ہو گیا۔", noSettingsYet:"اساتذہ کے چیک اِن سے پہلے سکول کا مقام سیٹ کریں۔",
+    incomplete:"نامکمل", requestedOn:"درخواست کی تاریخ"
+  }
+};
+function t(key){ return (I18N[LANG] && I18N[LANG][key]) || I18N.en[key] || key; }
+
+/* ---------- 3. SMALL UTILITIES ---------- */
+function $(id){ return document.getElementById(id); }
+function el(tag, attrs, children){
+  const node = document.createElement(tag);
+  if (attrs) for (const k in attrs){
+    if (k === "class") node.className = attrs[k];
+    else if (k === "html") node.innerHTML = attrs[k];
+    else if (k.startsWith("on") && typeof attrs[k] === "function") node.addEventListener(k.slice(2), attrs[k]);
+    else node.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(c => { if (c) node.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+  return node;
+}
+function showToast(msg, ms){
+  const host = $("toastHost");
+  const d = el("div", { class:"toast" }, [msg]);
+  host.appendChild(d);
+  setTimeout(() => d.remove(), ms || 2600);
+}
+function todayKey(d){
+  d = d || new Date();
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function pad2(n){ return String(n).padStart(2,"0"); }
+function fmtTime(ts){
+  if (!ts) return "\u2014";
+  const d = new Date(ts);
+  return d.toLocaleTimeString(LANG === "ur" ? "ur-PK" : "en-US", { hour:"2-digit", minute:"2-digit" });
+}
+function fmtDate(ts){
+  if (!ts) return "\u2014";
+  const d = new Date(ts);
+  return d.toLocaleDateString(LANG === "ur" ? "ur-PK" : "en-US", { year:"numeric", month:"short", day:"numeric" });
+}
+function getServerTime(){ return Date.now() + serverTimeOffset; }
+function haversine(la1, lo1, la2, lo2){
+  const R = 6371000, toRad = x => x * Math.PI / 180;
+  const dLa = toRad(la2 - la1), dLo = toRad(lo2 - lo1);
+  const a = Math.sin(dLa/2)**2 + Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLo/2)**2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+function timeStrToMinutes(str){ const [h,m] = (str||"08:00").split(":").map(Number); return h*60+m; }
+function minutesOfServerNow(){ const d = new Date(getServerTime()); return d.getHours()*60 + d.getMinutes(); }
+
+/* ---------- 4. FIREBASE INIT & AUTH/SETUP ROUTING ---------- */
+function configIsPlaceholder(){
+  return !firebaseConfig.apiKey || firebaseConfig.apiKey.indexOf("PASTE_YOUR") === 0 || firebaseConfig.databaseURL.indexOf("PASTE_YOUR") > -1;
+}
+
+function initFirebase(){
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.database();
+  db.ref(".info/serverTimeOffset").on("value", snap => { serverTimeOffset = snap.val() || 0; });
+}
+
+function showScreen(id){
+  ["loadingScreen","configScreen","setupScreen","loginScreen","appShell"].forEach(s => $(s).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+}
+
+async function boot(){
+  if (configIsPlaceholder()){ showScreen("configScreen"); return; }
+  initFirebase();
+
+  auth.onAuthStateChanged(async (user) => {
+    if (!user){
+      const usersSnap = await db.ref("users").limitToFirst(1).once("value");
+      if (!usersSnap.exists()){ showScreen("setupScreen"); }
+      else { await loadPublicSettings(); showScreen("loginScreen"); }
+      return;
+    }
+    const profSnap = await db.ref("users/" + user.uid).once("value");
+    if (!profSnap.exists()){
+      showToast("Account has no profile. Contact Admin.");
+      await auth.signOut();
+      showScreen("loginScreen");
+      return;
+    }
+    const prof = profSnap.val();
+    if (prof.active === false){
+      showToast(t("inactive"));
+      await auth.signOut();
+      showScreen("loginScreen");
+      return;
+    }
+    CURRENT_USER = { uid:user.uid, email:user.email, role:prof.role, name:prof.name, designation:prof.designation || "" };
+    await loadPublicSettings();
+    renderAppShell();
+    showScreen("appShell");
+  });
+}
+
+async function loadPublicSettings(){
+  const snap = await db.ref("settings").once("value");
+  if (snap.exists()) SETTINGS = Object.assign(SETTINGS, snap.val());
+  $("loginSchoolName").textContent = SETTINGS.schoolName || "GPSAMS";
+}
+
+/* ---- Setup (first admin) ---- */
+$("setupBtn") && $("setupBtn").addEventListener("click", async () => {
+  const schoolName = $("setupSchoolName").value.trim();
+  const name = $("setupAdminName").value.trim();
+  const email = $("setupEmail").value.trim();
+  const pw = $("setupPassword").value;
+  const errEl = $("setupErr");
+  errEl.classList.add("hidden");
+  if (!schoolName || !name || !email || !pw){ errEl.textContent = t("fillAll"); errEl.classList.remove("hidden"); return; }
+  try{
+    const usersSnap = await db.ref("users").limitToFirst(1).once("value");
+    if (usersSnap.exists()){ showScreen("loginScreen"); return; }
+    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    await db.ref("users/" + cred.user.uid).set({ name, email, role:"admin", designation:"Administrator", active:true, createdAt: firebase.database.ServerValue.TIMESTAMP });
+    await db.ref("settings").update({ schoolName, geoFenceRadius: SETTINGS.geoFenceRadius, schoolStart: SETTINGS.schoolStart, schoolClose: SETTINGS.schoolClose, gracePeriod: SETTINGS.gracePeriod });
+  }catch(e){
+    errEl.textContent = mapAuthError(e);
+    errEl.classList.remove("hidden");
+  }
+});
+
+/* ---- Login ---- */
+$("loginBtn") && $("loginBtn").addEventListener("click", async () => {
+  const email = $("loginEmail").value.trim();
+  const pw = $("loginPassword").value;
+  const errEl = $("loginErr");
+  errEl.classList.add("hidden");
+  if (!email || !pw){ errEl.textContent = t("fillAll"); errEl.classList.remove("hidden"); return; }
+  $("loginBtnLabel").innerHTML = '<span class="spinner"></span>';
+  try{
+    await auth.signInWithEmailAndPassword(email, pw);
+  }catch(e){
+    errEl.textContent = mapAuthError(e);
+    errEl.classList.remove("hidden");
+  }finally{
+    $("loginBtnLabel").textContent = t("login");
+  }
+});
+
+$("logoutBtn") && $("logoutBtn").addEventListener("click", async () => {
+  await auth.signOut();
+  CURRENT_USER = null;
+});
+
+$("langToggleBtn") && $("langToggleBtn").addEventListener("click", async () => {
+  LANG = LANG === "ur" ? "en" : "ur";
+  $("langToggleBtn").textContent = LANG === "ur" ? "\u0627\u0631\u062F\u0648" : "EN";
+  document.documentElement.setAttribute("dir", LANG === "ur" ? "rtl" : "ltr");
+  if (CURRENT_USER){
+    db.ref("users/" + CURRENT_USER.uid + "/lang").set(LANG).catch(()=>{});
+    renderAppShell();
+  }
+});
+
+function mapAuthError(e){
+  const c = e && e.code || "";
+  if (c.indexOf("wrong-password") > -1 || c.indexOf("user-not-found") > -1 || c.indexOf("invalid-credential") > -1) return t("wrongCreds");
+  if (c.indexOf("weak-password") > -1) return t("weakPassword");
+  if (c.indexOf("email-already-in-use") > -1) return t("emailInUse");
+  return (e && e.message) || String(e);
+}
+
+/* ---------- 5. APP SHELL / NAV / ROUTING ---------- */
+const ADMIN_TABS = [
+  { id:"dashboard", label:"dashboard", icon:"\u{1F3E0}" },
+  { id:"teachers",  label:"teachers",  icon:"\u{1F9D1}\u200D\u{1F3EB}" },
+  { id:"leaves",    label:"leaves",    icon:"\u{1F4C4}" },
+  { id:"reports",   label:"reports",   icon:"\u{1F4CA}" },
+  { id:"settings",  label:"settings",  icon:"\u2699\uFE0F" }
+];
+const TEACHER_TABS = [
+  { id:"home",          label:"home",         icon:"\u{1F3E0}" },
+  { id:"myAttendance",  label:"myAttendance", icon:"\u{1F4C5}" },
+  { id:"requestLeave",  label:"requestLeave", icon:"\u270D\uFE0F" }
+];
+let ACTIVE_TAB = null;
+
+function renderAppShell(){
+  document.documentElement.setAttribute("dir", LANG === "ur" ? "rtl" : "ltr");
+  $("langToggleBtn").textContent = LANG === "ur" ? "EN" : "\u0627\u0631\u062F\u0648";
+  $("hdrSchoolName").textContent = SETTINGS.schoolName || "GPSAMS";
+  $("hdrUserName").textContent = CURRENT_USER.name || CURRENT_USER.email;
+  $("hdrUserName").className = "font-extrabold text-base " + (LANG === "ur" ? "ur-ui" : "");
+
+  const tabs = CURRENT_USER.role === "admin" ? ADMIN_TABS : TEACHER_TABS;
+  if (!ACTIVE_TAB || !tabs.some(tb => tb.id === ACTIVE_TAB)) ACTIVE_TAB = tabs[0].id;
+
+  const nav = $("bottomNav");
+  nav.innerHTML = "";
+  tabs.forEach(tb => {
+    const btn = el("button", {
+      class: "tab-btn" + (ACTIVE_TAB === tb.id ? " active" : ""),
+      onclick: () => { ACTIVE_TAB = tb.id; renderAppShell(); }
+    }, [ el("div", { class:"text-base" }, [tb.icon]), el("div", {}, [t(tb.label)]) ]);
+    nav.appendChild(btn);
+  });
+
+  const main = $("mainContent");
+  main.innerHTML = "";
+  main.className = "flex-1 px-4 pt-4 flex flex-col gap-4" + (LANG === "ur" ? " ur-ui" : "");
+
+  if (CURRENT_USER.role === "admin"){
+    if (ACTIVE_TAB === "dashboard") renderAdminDashboard(main);
+    else if (ACTIVE_TAB === "teachers") renderAdminTeachers(main);
+    else if (ACTIVE_TAB === "leaves") renderAdminLeaves(main);
+    else if (ACTIVE_TAB === "reports") renderAdminReports(main);
+    else if (ACTIVE_TAB === "settings") renderAdminSettings(main);
+  } else {
+    if (ACTIVE_TAB === "home") renderTeacherHome(main);
+    else if (ACTIVE_TAB === "myAttendance") renderTeacherHistory(main);
+    else if (ACTIVE_TAB === "requestLeave") renderTeacherLeave(main);
+  }
+}
+
+function openModal(titleText, bodyNode){
+  $("modalSheetInner").innerHTML = "";
+  const header = el("h3", { class:"font-extrabold text-base mb-3" + (LANG==="ur"?" ur-ui":"") }, [titleText]);
+  $("modalSheetInner").appendChild(header);
+  $("modalSheetInner").appendChild(bodyNode);
+  $("modalHost").classList.remove("hidden");
+}
+function closeModal(){ $("modalHost").classList.add("hidden"); $("modalSheetInner").innerHTML = ""; }
+$("modalHost").addEventListener("click", (e) => { if (e.target.id === "modalHost") closeModal(); });
+
+/* ---------- 6. GEOLOCATION ---------- */
+function getLiveLocation(){
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation){ reject(new Error(t("geoNoSupport"))); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      err => reject(new Error(err.code === 1 ? t("geoDenied") : t("geoNoSupport"))),
+      { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
+    );
+  });
+}
+
+/* ---------- 7. CAMERA CAPTURE ---------- */
+async function openCamera(){
+  PENDING_PHOTO = null;
+  $("camPreviewImg").classList.add("hidden");
+  $("camVideo").classList.remove("hidden");
+  $("camCaptureBtn").classList.remove("hidden");
+  $("camConfirmBtn").classList.add("hidden");
+  $("camRetakeBtn").classList.add("hidden");
+  $("camErr").classList.add("hidden");
+  $("camTitle").textContent = t("captureSelfie");
+  $("camSub").textContent = t("captureSub");
+  $("cameraModal").classList.remove("hidden");
+  try{
+    CAM_STREAM = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"user", width:{ ideal:480 }, height:{ ideal:360 } }, audio:false });
+    $("camVideo").srcObject = CAM_STREAM;
+  }catch(e){
+    $("camErr").textContent = t("camDenied");
+    $("camErr").classList.remove("hidden");
+  }
+}
+function stopCameraStream(){
+  if (CAM_STREAM){ CAM_STREAM.getTracks().forEach(tr => tr.stop()); CAM_STREAM = null; }
+}
+function closeCamera(){
+  stopCameraStream();
+  $("cameraModal").classList.add("hidden");
+  PENDING_PHOTO = null; PENDING_GEO = null; PENDING_KIND = null;
+}
+$("camCancelBtn").addEventListener("click", closeCamera);
+$("camCaptureBtn").addEventListener("click", () => {
+  const video = $("camVideo"), canvas = $("camCanvas");
+  const w = 480, h = Math.round(w * (video.videoHeight / video.videoWidth || 0.75));
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.translate(w, 0); ctx.scale(-1, 1); // mirror, matches selfie preview
+  ctx.drawImage(video, 0, 0, w, h);
+  PENDING_PHOTO = canvas.toDataURL("image/jpeg", 0.55);
+  $("camPreviewImg").src = PENDING_PHOTO;
+  $("camPreviewImg").classList.remove("hidden");
+  $("camVideo").classList.add("hidden");
+  $("camCaptureBtn").classList.add("hidden");
+  $("camRetakeBtn").classList.remove("hidden");
+  $("camConfirmBtn").classList.remove("hidden");
+  stopCameraStream();
+});
+$("camRetakeBtn").addEventListener("click", async () => {
+  $("camPreviewImg").classList.add("hidden");
+  $("camVideo").classList.remove("hidden");
+  $("camCaptureBtn").classList.remove("hidden");
+  $("camConfirmBtn").classList.add("hidden");
+  $("camRetakeBtn").classList.add("hidden");
+  PENDING_PHOTO = null;
+  try{ CAM_STREAM = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user" }, audio:false }); $("camVideo").srcObject = CAM_STREAM; }catch(e){}
+});
+$("camConfirmBtn").addEventListener("click", async () => {
+  if (!PENDING_PHOTO){ return; }
+  $("camConfirmBtn").innerHTML = '<span class="spinner"></span>';
+  try{
+    await submitAttendance(PENDING_KIND, PENDING_GEO, PENDING_PHOTO);
+    closeCamera();
+    showToast(t("doneToday"));
+    renderAppShell();
+  }catch(e){
+    $("camErr").textContent = e.message || String(e);
+    $("camErr").classList.remove("hidden");
+  }finally{
+    $("camConfirmBtn").textContent = t("confirm");
+  }
+});
+
+/* ---------- 8. CHECK-IN / CHECK-OUT FLOW ---------- */
+async function startCheckInOut(){
+  if (!SETTINGS.schoolLat || !SETTINGS.schoolLng){ showToast(t("noSettingsYet")); return; }
+  let geo;
+  try{ geo = await getLiveLocation(); }
+  catch(e){ showToast(e.message); return; }
+
+  const dist = haversine(SETTINGS.schoolLat, SETTINGS.schoolLng, geo.lat, geo.lng);
+  if (geo.accuracy && geo.accuracy > 100){ showToast(t("lowAccuracy")); return; }
+  if (dist > (SETTINGS.geoFenceRadius || 50)){ showToast(t("tooFar") + ` (${dist}m)`); return; }
+
+  const dayKey = todayKey();
+  const daySnap = await db.ref(`attendance/${CURRENT_USER.uid}/${dayKey}`).once("value");
+  const dayVal = daySnap.val() || {};
+  const kind = dayVal.checkIn ? "checkOut" : "checkIn";
+  if (dayVal.checkIn && dayVal.checkOut){ showToast(t("alreadyDone")); return; }
+
+  PENDING_GEO = Object.assign({ dist }, geo);
+  PENDING_KIND = kind;
+  await openCamera();
+}
+
+async function submitAttendance(kind, geo, photo){
+  const dayKey = todayKey();
+  const ref = db.ref(`attendance/${CURRENT_USER.uid}/${dayKey}`);
+  const snap = await ref.once("value");
+  const existing = snap.val() || {};
+
+  const nowServer = getServerTime();
+  const entry = { ts: firebase.database.ServerValue.TIMESTAMP, clientTs: nowServer, lat:geo.lat, lng:geo.lng, accuracy:geo.accuracy || null, dist:geo.dist, photo };
+
+  if (kind === "checkIn"){
+    const lateLimit = timeStrToMinutes(SETTINGS.schoolStart) + Number(SETTINGS.gracePeriod || 0);
+    const nowMin = minutesOfServerNow();
+    entry.onTimeStatus = nowMin > lateLimit ? "late" : "onTime";
+    existing.checkIn = entry;
+    existing.status = entry.onTimeStatus === "late" ? "late" : "onTime";
+    await ref.set(existing);
+  } else {
+    existing.checkOut = entry;
+    const inTs = existing.checkIn && existing.checkIn.clientTs || nowServer;
+    const hours = Math.max(0, (nowServer - inTs) / 3600000);
+    const closeMin = timeStrToMinutes(SETTINGS.schoolClose);
+    const nowMin = minutesOfServerNow();
+    const schoolDayHours = Math.max(1, (timeStrToMinutes(SETTINGS.schoolClose) - timeStrToMinutes(SETTINGS.schoolStart)) / 60);
+    let status = existing.status || "onTime";
+    if (hours < schoolDayHours / 2 || nowMin < closeMin - 60) status = "halfDay";
+    existing.totalHours = Math.round(hours * 100) / 100;
+    existing.status = status;
+    await ref.set(existing);
+  }
+}
+
+/* ---------- 9. TEACHER SCREENS ---------- */
+function statusBadge(status){
+  const map = {
+    onTime:  { bg:"var(--green-bg)", tx:"var(--green)", label:t("onTime") },
+    late:    { bg:"var(--amber-bg)", tx:"var(--amber)", label:t("late") },
+    halfDay: { bg:"#E0E7FF", tx:"#3730A3", label:t("halfDay") },
+    absent:  { bg:"var(--rose-bg)", tx:"var(--rose)", label:t("absent") },
+    onLeave: { bg:"#F1F5F9", tx:"#334155", label:t("onLeave") },
+    pending: { bg:"var(--amber-bg)", tx:"var(--amber)", label:t("pending") },
+    approved:{ bg:"var(--green-bg)", tx:"var(--green)", label:t("approved") },
+    rejected:{ bg:"var(--rose-bg)", tx:"var(--rose)", label:t("rejected") },
+    incomplete:{ bg:"#F1F5F9", tx:"#334155", label:t("incomplete") }
+  };
+  const s = map[status] || map.incomplete;
+  return el("span", { class:"badge", style:`background:${s.bg};color:${s.tx}` }, [s.label]);
+}
+
+async function renderTeacherHome(main){
+  const dayKey = todayKey();
+  const snap = await db.ref(`attendance/${CURRENT_USER.uid}/${dayKey}`).once("value");
+  const val = snap.val() || {};
+
+  const card = el("div", { class:"card p-5 flex flex-col items-center gap-3 text-center" });
+  card.appendChild(el("div", { class:"pulse-dot" }));
+  card.appendChild(el("p", { class:"font-extrabold text-lg" }, [ val.checkIn && val.checkOut ? t("alreadyDone") : val.checkIn ? t("checkOut") : t("notCheckedIn") ]));
+
+  const timesRow = el("div", { class:"flex gap-4 justify-center text-sm" }, [
+    el("div", {}, [ el("div", { class:"text-[11px]", style:"color:var(--ink-light)" }, [t("checkInTime")]), el("div", { class:"font-bold" }, [fmtTime(val.checkIn && val.checkIn.clientTs)]) ]),
+    el("div", {}, [ el("div", { class:"text-[11px]", style:"color:var(--ink-light)" }, [t("checkOutTime")]), el("div", { class:"font-bold" }, [fmtTime(val.checkOut && val.checkOut.clientTs)]) ])
+  ]);
+  card.appendChild(timesRow);
+  if (val.status) card.appendChild(statusBadge(val.status));
+
+  const actionBtn = el("button", {
+    class:"btn btn-primary btn-block", style:"margin-top:8px;padding:16px;",
+    onclick: startCheckInOut
+  }, [ val.checkIn && val.checkOut ? t("alreadyDone") : val.checkIn ? t("checkOut") : t("checkIn") ]);
+  if (val.checkIn && val.checkOut) actionBtn.disabled = true;
+  card.appendChild(actionBtn);
+  main.appendChild(card);
+
+  if (SETTINGS.schoolLat && SETTINGS.schoolLng){
+    const geoCard = el("div", { class:"card p-4 flex items-center justify-between text-sm" }, [
+      el("span", { style:"color:var(--ink-light)" }, [t("geoFenceRadius") + ": " + (SETTINGS.geoFenceRadius || 50) + "m"]),
+    ]);
+    main.appendChild(geoCard);
+  }
+}
+
+async function renderTeacherHistory(main){
+  main.appendChild(el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("teacherHistory")]));
+  const snap = await db.ref(`attendance/${CURRENT_USER.uid}`).limitToLast(60).once("value");
+  const val = snap.val() || {};
+  const days = Object.keys(val).sort().reverse();
+  if (!days.length){ main.appendChild(el("p", { class:"text-sm text-center py-6", style:"color:var(--ink-light)" }, [t("noHistory")])); return; }
+
+  const wrap = el("div", { class:"card p-2 overflow-x-auto" });
+  const table = el("table", { class:"rpt" });
+  table.appendChild(el("thead", {}, [ el("tr", {}, [ el("th",{},[t("date")]), el("th",{},[t("checkInTime")]), el("th",{},[t("checkOutTime")]), el("th",{},[t("status")]) ]) ]));
+  const tbody = el("tbody");
+  days.forEach(dk => {
+    const rec = val[dk];
+    tbody.appendChild(el("tr", {}, [
+      el("td", {}, [dk]),
+      el("td", {}, [fmtTime(rec.checkIn && rec.checkIn.clientTs)]),
+      el("td", {}, [fmtTime(rec.checkOut && rec.checkOut.clientTs)]),
+      el("td", {}, [statusBadge(rec.status || "incomplete")])
+    ]));
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  main.appendChild(wrap);
+}
+
+async function renderTeacherLeave(main){
+  main.appendChild(el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("requestLeave")]));
+
+  const form = el("div", { class:"card p-4 flex flex-col gap-3" });
+  const typeSel = el("select", {}, [ el("option", { value:"casual" }, [t("casual")]), el("option", { value:"sick" }, [t("sick")]) ]);
+  const fromInp = el("input", { type:"date" });
+  const toInp = el("input", { type:"date" });
+  const reasonInp = el("textarea", { rows:"3", placeholder:t("reason") });
+  form.appendChild(el("div", {}, [ el("label", { class:"field-label" }, [t("leaveType")]), typeSel ]));
+  const rangeRow = el("div", { class:"grid grid-cols-2 gap-3" }, [
+    el("div", {}, [ el("label", { class:"field-label" }, [t("fromDate")]), fromInp ]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("toDate")]), toInp ])
+  ]);
+  form.appendChild(rangeRow);
+  form.appendChild(el("div", {}, [ el("label", { class:"field-label" }, [t("reason")]), reasonInp ]));
+  const errP = el("p", { class:"text-xs font-bold hidden", style:"color:var(--rose)" });
+  form.appendChild(errP);
+  form.appendChild(el("button", {
+    class:"btn btn-primary btn-block",
+    onclick: async () => {
+      if (!fromInp.value || !toInp.value){ errP.textContent = t("fillAll"); errP.classList.remove("hidden"); return; }
+      await db.ref("leaves").push({
+        uid: CURRENT_USER.uid, name: CURRENT_USER.name, type: typeSel.value,
+        from: fromInp.value, to: toInp.value, reason: reasonInp.value.trim(),
+        status:"pending", createdAt: firebase.database.ServerValue.TIMESTAMP
+      });
+      showToast(t("savedOk"));
+      renderAppShell();
+    }
+  }, [t("submit")]));
+  main.appendChild(form);
+
+  main.appendChild(el("h3", { class:"font-extrabold text-sm mt-2", style:"color:var(--ink-light)" }, [t("myLeaves")]));
+  const snap = await db.ref("leaves").orderByChild("uid").equalTo(CURRENT_USER.uid).once("value");
+  const rows = [];
+  snap.forEach(ch => rows.push(Object.assign({ id: ch.key }, ch.val())));
+  rows.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  if (!rows.length){ main.appendChild(el("p", { class:"text-sm text-center py-4", style:"color:var(--ink-light)" }, [t("noLeaves")])); return; }
+  rows.forEach(r => {
+    main.appendChild(el("div", { class:"card p-3 flex items-center justify-between" }, [
+      el("div", {}, [
+        el("div", { class:"font-bold text-sm" }, [ (r.type === "sick" ? t("sick") : t("casual")) + " \u00B7 " + r.from + " \u2192 " + r.to ]),
+        el("div", { class:"text-xs", style:"color:var(--ink-light)" }, [r.reason || ""])
+      ]),
+      statusBadge(r.status)
+    ]));
+  });
+}
+
+/* ---------- 10. ADMIN: DASHBOARD ---------- */
+async function loadAllTeachers(){
+  const snap = await db.ref("users").once("value");
+  TEACHERS_CACHE = {};
+  snap.forEach(ch => { const v = ch.val(); if (v.role === "teacher") TEACHERS_CACHE[ch.key] = v; });
+  return TEACHERS_CACHE;
+}
+
+async function renderAdminDashboard(main){
+  const teachers = await loadAllTeachers();
+  const uids = Object.keys(teachers);
+  const dayKey = todayKey();
+  let present = 0, late = 0, onLeaveCount = 0;
+  const activityRows = [];
+
+  const leavesSnap = await db.ref("leaves").orderByChild("status").equalTo("approved").once("value");
+  const approvedLeaveUids = new Set();
+  leavesSnap.forEach(ch => {
+    const lv = ch.val();
+    if (dayKey >= lv.from && dayKey <= lv.to) approvedLeaveUids.add(lv.uid);
+  });
+
+  for (const uid of uids){
+    if (approvedLeaveUids.has(uid)){ onLeaveCount++; continue; }
+    const snap = await db.ref(`attendance/${uid}/${dayKey}`).once("value");
+    const v = snap.val();
+    if (v && v.checkIn){
+      present++;
+      if (v.status === "late") late++;
+      activityRows.push(Object.assign({ uid, name: teachers[uid].name }, v));
+    }
+  }
+
+  const cards = el("div", { class:"grid grid-cols-2 gap-3" }, [
+    statCard(t("totalTeachers"), uids.length, "var(--forest)"),
+    statCard(t("presentToday"), present, "var(--green)"),
+    statCard(t("lateToday"), late, "var(--amber)"),
+    statCard(t("onLeaveToday"), onLeaveCount, "var(--ink-light)")
+  ]);
+  main.appendChild(cards);
+
+  main.appendChild(el("h3", { class:"font-extrabold text-sm mt-1", style:"color:var(--ink-light)" }, [t("recentActivity")]));
+  if (!activityRows.length){
+    main.appendChild(el("p", { class:"text-sm text-center py-6 card", style:"color:var(--ink-light)" }, [t("noActivityToday")]));
+  } else {
+    activityRows.sort((a,b) => (a.checkIn.clientTs||0) - (b.checkIn.clientTs||0));
+    activityRows.forEach(r => {
+      main.appendChild(el("div", { class:"card p-3 flex items-center gap-3" }, [
+        r.checkIn.photo ? el("img", { class:"avatar", src:r.checkIn.photo }) : el("div", { class:"avatar" }, [(r.name||"?")[0]]),
+        el("div", { class:"flex-1 min-w-0" }, [
+          el("div", { class:"font-bold text-sm truncate" }, [r.name]),
+          el("div", { class:"text-xs", style:"color:var(--ink-light)" }, [t("checkInTime") + ": " + fmtTime(r.checkIn.clientTs) + (r.checkOut ? " \u2192 " + fmtTime(r.checkOut.clientTs) : "")])
+        ]),
+        statusBadge(r.status)
+      ]));
+    });
+  }
+}
+function statCard(label, value, color){
+  return el("div", { class:"card p-4" }, [
+    el("div", { class:"text-2xl font-black", style:`color:${color}` }, [String(value)]),
+    el("div", { class:"text-xs font-bold", style:"color:var(--ink-light)" }, [label])
+  ]);
+}
+
+/* ---------- 11. ADMIN: TEACHERS ---------- */
+async function renderAdminTeachers(main){
+  const teachers = await loadAllTeachers();
+  const uids = Object.keys(teachers);
+
+  main.appendChild(el("div", { class:"flex items-center justify-between" }, [
+    el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("teachers")]),
+    el("button", { class:"btn btn-primary", onclick: openAddTeacherModal }, [t("addTeacher")])
+  ]));
+
+  if (!uids.length){ main.appendChild(el("p", { class:"text-sm text-center py-8 card", style:"color:var(--ink-light)" }, [t("noTeachersYet")])); return; }
+
+  uids.forEach(uid => {
+    const p = teachers[uid];
+    main.appendChild(el("div", { class:"card p-3 flex items-center gap-3" }, [
+      el("div", { class:"avatar" }, [(p.name||"?")[0]]),
+      el("div", { class:"flex-1 min-w-0" }, [
+        el("div", { class:"font-bold text-sm truncate" }, [p.name]),
+        el("div", { class:"text-xs truncate", style:"color:var(--ink-light)" }, [p.designation || "", " \u00B7 ", p.email])
+      ]),
+      el("span", { class:"badge", style: p.active === false ? "background:var(--rose-bg);color:var(--rose)" : "background:var(--green-bg);color:var(--green)" }, [p.active === false ? t("inactive") : t("active")]),
+      el("button", { class:"btn btn-ghost", onclick: () => toggleTeacherActive(uid, p) }, [p.active === false ? "\u21BB" : "\u23F8"]),
+      el("button", { class:"btn btn-ghost", onclick: () => sendReset(p.email) }, ["\u2709\uFE0F"])
+    ]));
+  });
+}
+async function toggleTeacherActive(uid, p){
+  await db.ref("users/" + uid + "/active").set(p.active === false ? true : false);
+  showToast(t("savedOk"));
+  renderAppShell();
+}
+async function sendReset(email){
+  try{ await auth.sendPasswordResetEmail(email); showToast(t("resetSent")); }catch(e){ showToast(e.message); }
+}
+function openAddTeacherModal(){
+  const nameInp = el("input", { type:"text", placeholder:t("name") });
+  const desigInp = el("input", { type:"text", placeholder:t("designation") });
+  const emailInp = el("input", { type:"email", placeholder:t("email") });
+  const pwInp = el("input", { type:"password", placeholder:t("password") });
+  const errP = el("p", { class:"text-xs font-bold hidden", style:"color:var(--rose)" });
+  const body = el("div", { class:"flex flex-col gap-3" }, [
+    el("div", {}, [ el("label", { class:"field-label" }, [t("name")]), nameInp ]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("designation")]), desigInp ]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("email")]), emailInp ]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("password")]), pwInp ]),
+    errP,
+    el("button", {
+      class:"btn btn-primary btn-block",
+      onclick: async () => {
+        const name = nameInp.value.trim(), email = emailInp.value.trim(), pw = pwInp.value, desig = desigInp.value.trim();
+        if (!name || !email || !pw){ errP.textContent = t("fillAll"); errP.classList.remove("hidden"); return; }
+        try{
+          await adminCreateTeacher(name, email, pw, desig);
+          closeModal();
+          showToast(t("savedOk"));
+          renderAppShell();
+        }catch(e){ errP.textContent = mapAuthError(e); errP.classList.remove("hidden"); }
+      }
+    }, [t("save")])
+  ]);
+  openModal(t("addTeacher"), body);
+}
+async function adminCreateTeacher(name, email, password, designation){
+  const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary_" + Date.now());
+  const secondaryAuth = secondaryApp.auth();
+  try{
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+    await db.ref("users/" + cred.user.uid).set({ name, email, role:"teacher", designation, active:true, createdAt: firebase.database.ServerValue.TIMESTAMP });
+  } finally {
+    await secondaryAuth.signOut().catch(()=>{});
+    await secondaryApp.delete().catch(()=>{});
+  }
+}
+
+/* ---------- 12. ADMIN: LEAVES ---------- */
+async function renderAdminLeaves(main){
+  main.appendChild(el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("allLeaves")]));
+  const snap = await db.ref("leaves").once("value");
+  const rows = [];
+  snap.forEach(ch => rows.push(Object.assign({ id: ch.key }, ch.val())));
+  rows.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  if (!rows.length){ main.appendChild(el("p", { class:"text-sm text-center py-8 card", style:"color:var(--ink-light)" }, [t("noLeaves")])); return; }
+
+  rows.forEach(r => {
+    const card = el("div", { class:"card p-3 flex flex-col gap-2" }, [
+      el("div", { class:"flex items-center justify-between" }, [
+        el("div", { class:"font-bold text-sm" }, [r.name]),
+        statusBadge(r.status)
+      ]),
+      el("div", { class:"text-xs", style:"color:var(--ink-light)" }, [(r.type === "sick" ? t("sick") : t("casual")) + " \u00B7 " + r.from + " \u2192 " + r.to]),
+      r.reason ? el("div", { class:"text-xs" }, [r.reason]) : null
+    ]);
+    if (r.status === "pending"){
+      card.appendChild(el("div", { class:"flex gap-2 mt-1" }, [
+        el("button", { class:"btn btn-primary btn-block", onclick: () => decideLeave(r.id, "approved") }, [t("approve")]),
+        el("button", { class:"btn btn-danger btn-block", onclick: () => decideLeave(r.id, "rejected") }, [t("reject")])
+      ]));
+    }
+    main.appendChild(card);
+  });
+}
+async function decideLeave(id, status){
+  await db.ref("leaves/" + id).update({ status, decidedAt: firebase.database.ServerValue.TIMESTAMP, decidedBy: CURRENT_USER.name });
+  showToast(t("savedOk"));
+  renderAppShell();
+}
+
+/* ---------- 13. ADMIN: REPORTS + EXCEL EXPORT ---------- */
+async function renderAdminReports(main){
+  main.appendChild(el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("reports")]));
+
+  const now = new Date();
+  const monthInp = el("input", { type:"month", value:`${now.getFullYear()}-${pad2(now.getMonth()+1)}` });
+  const exportBtn = el("button", { class:"btn btn-gold btn-block", onclick: () => exportMonthlyExcel(monthInp.value, exportBtn) }, [t("exportBtn")]);
+  main.appendChild(el("div", { class:"card p-4 flex flex-col gap-3" }, [
+    el("div", {}, [ el("label", { class:"field-label" }, [t("selectMonth")]), monthInp ]),
+    exportBtn
+  ]));
+
+  const dateInp = el("input", { type:"date", value: todayKey() });
+  const dayWrap = el("div", { class:"flex flex-col gap-2" });
+  async function renderDay(){
+    dayWrap.innerHTML = "";
+    const teachers = await loadAllTeachers();
+    const uids = Object.keys(teachers);
+    for (const uid of uids){
+      const snap = await db.ref(`attendance/${uid}/${dateInp.value}`).once("value");
+      const v = snap.val();
+      dayWrap.appendChild(el("div", { class:"card p-3 flex items-center justify-between" }, [
+        el("div", { class:"font-bold text-sm" }, [teachers[uid].name]),
+        v ? el("div", { class:"flex items-center gap-2 text-xs" }, [ fmtTime(v.checkIn && v.checkIn.clientTs), " \u2192 ", fmtTime(v.checkOut && v.checkOut.clientTs), statusBadge(v.status) ]) : statusBadge("absent")
+      ]));
+    }
+  }
+  dateInp.addEventListener("change", renderDay);
+  main.appendChild(el("div", {}, [ el("label", { class:"field-label" }, [t("date")]), dateInp ]));
+  main.appendChild(dayWrap);
+  renderDay();
+}
+
+async function exportMonthlyExcel(monthStr, btn){
+  btn.innerHTML = '<span class="spinner"></span>';
+  try{
+    const [y, m] = monthStr.split("-").map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const teachers = await loadAllTeachers();
+    const uids = Object.keys(teachers);
+
+    const leavesSnap = await db.ref("leaves").orderByChild("status").equalTo("approved").once("value");
+    const approvedLeaves = [];
+    leavesSnap.forEach(ch => approvedLeaves.push(ch.val()));
+
+    const rows = [];
+    for (const uid of uids){
+      const p = teachers[uid];
+      for (let d = 1; d <= daysInMonth; d++){
+        const dk = `${y}-${pad2(m)}-${pad2(d)}`;
+        const onLeave = approvedLeaves.some(lv => lv.uid === uid && dk >= lv.from && dk <= lv.to);
+        const snap = await db.ref(`attendance/${uid}/${dk}`).once("value");
+        const v = snap.val();
+        let status = "Absent";
+        if (onLeave) status = "Leave";
+        else if (v && v.status) status = ({ onTime:"On Time", late:"Late", halfDay:"Half Day" })[v.status] || v.status;
+        if (!onLeave && !v) continue; // skip days with no record and no leave to keep the sheet compact
+        rows.push({
+          "Teacher Name": p.name,
+          "Designation": p.designation || "",
+          "Date": dk,
+          "Check-In Time": v && v.checkIn ? fmtTime(v.checkIn.clientTs) : "",
+          "Check-Out Time": v && v.checkOut ? fmtTime(v.checkOut.clientTs) : "",
+          "Status": status,
+          "Total Hours": v && v.totalHours ? v.totalHours : ""
+        });
+      }
+    }
+    if (!rows.length){ showToast(t("noHistory")); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{wch:22},{wch:16},{wch:12},{wch:14},{wch:14},{wch:12},{wch:11}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    XLSX.writeFile(wb, `GPSAMS_Attendance_${monthStr}.xlsx`);
+  } finally {
+    btn.textContent = t("exportBtn");
+  }
+}
+
+/* ---------- 14. ADMIN: SETTINGS ---------- */
+function renderAdminSettings(main){
+  main.appendChild(el("h2", { class:"font-extrabold text-lg", style:"color:var(--forest)" }, [t("schoolSettings")]));
+
+  const nameInp = el("input", { type:"text", value: SETTINGS.schoolName || "" });
+  const latInp = el("input", { type:"number", value: SETTINGS.schoolLat || "", step:"0.000001" });
+  const lngInp = el("input", { type:"number", value: SETTINGS.schoolLng || "", step:"0.000001" });
+  const radiusSel = el("select", {}, [30,50,75,100,150].map(v => el("option", { value:v, selected: String(SETTINGS.geoFenceRadius) === String(v) }, [v + " m"])));
+  const startInp = el("input", { type:"time", value: SETTINGS.schoolStart || "08:00" });
+  const closeInp = el("input", { type:"time", value: SETTINGS.schoolClose || "14:00" });
+  const graceInp = el("input", { type:"number", value: SETTINGS.gracePeriod || 15, min:"0" });
+
+  const useLocBtn = el("button", {
+    class:"btn btn-outline btn-block",
+    onclick: async () => {
+      try{ const g = await getLiveLocation(); latInp.value = g.lat.toFixed(6); lngInp.value = g.lng.toFixed(6); }
+      catch(e){ showToast(e.message); }
+    }
+  }, [t("useMyLocation")]);
+
+  const body = el("div", { class:"card p-4 flex flex-col gap-3" }, [
+    el("div", {}, [ el("label", { class:"field-label" }, [t("schoolName")]), nameInp ]),
+    el("p", { class:"text-xs font-bold", style:"color:var(--ink-light)" }, [t("schoolLocation")]),
+    el("div", { class:"grid grid-cols-2 gap-3" }, [
+      el("div", {}, [ el("label", { class:"field-label" }, [t("lat")]), latInp ]),
+      el("div", {}, [ el("label", { class:"field-label" }, [t("lng")]), lngInp ])
+    ]),
+    useLocBtn,
+    el("p", { class:"text-[11px]", style:"color:var(--amber)" }, [t("manualCoordsWarn")]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("geoFenceRadius")]), radiusSel ]),
+    el("div", { class:"grid grid-cols-2 gap-3" }, [
+      el("div", {}, [ el("label", { class:"field-label" }, [t("schoolStart")]), startInp ]),
+      el("div", {}, [ el("label", { class:"field-label" }, [t("schoolClose")]), closeInp ])
+    ]),
+    el("div", {}, [ el("label", { class:"field-label" }, [t("gracePeriod")]), graceInp ]),
+    el("button", {
+      class:"btn btn-primary btn-block",
+      onclick: async () => {
+        await db.ref("settings").update({
+          schoolName: nameInp.value.trim(),
+          schoolLat: parseFloat(latInp.value) || null,
+          schoolLng: parseFloat(lngInp.value) || null,
+          geoFenceRadius: parseInt(radiusSel.value, 10),
+          schoolStart: startInp.value,
+          schoolClose: closeInp.value,
+          gracePeriod: parseInt(graceInp.value, 10) || 0
+        });
+        await loadPublicSettings();
+        showToast(t("savedOk"));
+        renderAppShell();
+      }
+    }, [t("save")])
+  ]);
+  main.appendChild(body);
+}
+
+/* ---------- 15. BOOT ---------- */
+window.addEventListener("DOMContentLoaded", boot);
+
+</script>
+</body>
+</html>
+
+<!-- =========================================================================
+SETUP NOTES — read before deploying
+
+1) CREATE A FIREBASE PROJECT
+   - Go to https://console.firebase.google.com -> Add project.
+   - In the project, enable:
+       Build -> Authentication -> Sign-in method -> Email/Password -> Enable
+       Build -> Realtime Database -> Create Database -> start in LOCKED mode
+   - Project settings -> General -> "Your apps" -> Add app -> Web (</>) 
+     -> copy the firebaseConfig object it gives you.
+
+2) PASTE YOUR CONFIG
+   - Open this file, search for "PASTE_YOUR_API_KEY" (near the top of the
+     big <script> block) and replace the whole firebaseConfig object with
+     the one Firebase gave you.
+
+3) SET REALTIME DATABASE SECURITY RULES
+   Go to Realtime Database -> Rules, and paste (adjust to taste):
+
+   {
+     "rules": {
+       "settings": {
+         ".read": "auth != null",
+         ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+       },
+       "users": {
+         ".read": "auth != null",
+         "$uid": {
+           ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+         }
+       },
+       "attendance": {
+         "$uid": {
+           ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+           ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+         }
+       },
+       "leaves": {
+         ".read": "auth != null",
+         ".write": "auth != null"
+       }
+     }
+   }
+
+   IMPORTANT: the very first Admin account is created by the in-app "Setup"
+   screen the FIRST time the /users node is empty. After that first admin
+   exists, nobody else can self-promote to admin — only an existing admin
+   can add teacher accounts (from the Teachers tab).
+
+4) HOSTING
+   - GitHub Pages, Firebase Hosting, or any static host works, but the
+     Geolocation and Camera APIs used here REQUIRE HTTPS (or localhost) —
+     they will not work over plain http://.
+
+5) DATA MIGRATION
+   - This is a fresh rewrite. It does NOT read your old GPSAMS_READY.html's
+     localStorage data (students/attendance from the old React version).
+     This new app's data model is teacher-attendance-only, built around
+     Firebase from a clean slate. If you need old records carried over,
+     that would be a separate one-time import script.
+
+6) PRIVACY NOTE ON THE SELFIE FEATURE
+   Each check-in/out captures and stores a photo of the teacher. Please:
+   - Tell your staff this is happening and why, before turning it on.
+   - Treat the "attendance" node as containing personal data — the
+     security rules above already restrict read access to the teacher
+     themself and the admin, not the public.
+========================================================================= -->
